@@ -4,26 +4,38 @@ import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.ConfigurationInfo;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.OvalShape;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.FloatMath;
+import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
+import android.widget.TextView;
+
 import java.lang.Math;
 
 public class MainActivity extends Activity implements OnTouchListener {
 
 	private ImageView imgView;
+	private MyDrawableView myDView;
 
 	/** Hold a reference to our GLSurfaceView */
 	private GLSurfaceView mGLView;
@@ -48,6 +60,15 @@ public class MainActivity extends Activity implements OnTouchListener {
 	private PointF start = new PointF();
 	private PointF mid = new PointF();
 
+	private int numScans = 1;
+	private int numScansPending;
+
+	/*
+	 * We'll need to save the initial scaling factor in order to account for the
+	 * pixel positioning of the localization program
+	 */
+	private static float initScale;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -69,6 +90,9 @@ public class MainActivity extends Activity implements OnTouchListener {
 		 * imgView.setPivotX(0); imgView.setPivotY(0); imgView.setScaleX(scaleX);
 		 * imgView.setScaleY(scaleY);
 		 */
+
+		myDView = (MyDrawableView) findViewById(R.id.circleView1);
+		myDView.setVisibility(View.INVISIBLE);
 		imgView.setOnTouchListener(this);
 	}
 
@@ -98,6 +122,65 @@ public class MainActivity extends Activity implements OnTouchListener {
 		return true;
 	}
 
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.action_settings:
+			showSeek();
+			return true;
+		default:
+			return super.onOptionsItemSelected(item);
+		}
+	}
+
+	public void showSeek() {
+		final TextView tvBetVal;
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		LayoutInflater inflater = this.getLayoutInflater();
+		View v = inflater.inflate(R.layout.dialog, null);
+		builder
+				.setView(v)
+				.setTitle(
+						"Enter the sampling speed (Note: Higher speeds may reduce accuracy)")
+				.setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						// confirmValues();
+						// SAVE THE PROGRESS BAR VALUE SOMEWHERE
+						numScans = (numScansPending == 0) ? (1) : (numScansPending);
+						dialog.dismiss();
+					}
+				}).setNeutralButton("Cancel", null).show();
+		SeekBar sbBetVal = (SeekBar) v.findViewById(R.id.sbBetVal);
+		tvBetVal = (TextView) v.findViewById(R.id.tvBetVal);
+		sbBetVal.setMax(10);
+		sbBetVal.setProgress(numScans);
+		sbBetVal.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+
+			@Override
+			public void onStopTrackingTouch(SeekBar seekBar) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onStartTrackingTouch(SeekBar seekBar) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onProgressChanged(SeekBar seekBar, int progress,
+					boolean fromUser) {
+				// TODO Auto-generated method stub
+				tvBetVal.setText(String.valueOf(progress));
+				numScansPending = progress;
+			}
+		});
+
+		// builder.create();
+		// builder.show();
+	}
+
 	public boolean onTouch(View v, MotionEvent event) {
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
@@ -111,19 +194,26 @@ public class MainActivity extends Activity implements OnTouchListener {
 
 		switch (event.getAction() & MotionEvent.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
-			System.out.println("First press down");
+			myDView.setVisibility(View.INVISIBLE);
+			// System.out.println("First press down");
 			savedMatrix.set(matrix);
 			start.set(event.getX(), event.getY());
 			// System.out.println("X is " + event.getX() + " Y is " + event.getY());
 			mode = DRAG;
 			// System.out.println("BEFORE: " + view.getImageMatrix().toString());
 			// lastEvent = null;
-			System.out.println("VIEW DIM: " + view.getBottom() + "x"
-					+ view.getRight());
+			System.out.println("VIEW DIM: " + view.getHeight() + "x"
+					+ view.getWidth());
 
-			System.out.println("IMG DIM: " + metrics.heightPixels + "x"
+			System.out.println("SCREEN DIM: " + metrics.heightPixels + "x"
 					+ metrics.widthPixels);
 
+			System.out.println("IMG DIM: " + drawable.getIntrinsicHeight() + "x"
+					+ drawable.getIntrinsicWidth());
+
+			myDView.setX(event.getX() - 25);
+			myDView.setY(event.getY() - 25);
+			myDView.setVisibility(View.VISIBLE);
 			break;
 		case MotionEvent.ACTION_POINTER_DOWN:
 			System.out.println("Subsequent presses");
@@ -143,31 +233,58 @@ public class MainActivity extends Activity implements OnTouchListener {
 			break;
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_POINTER_UP:
-			System.out.println("PRESSES ENDED");
+			// System.out.println("PRESSES ENDED");
 			switch (mode) {
 			case DRAG:
 				view.getImageMatrix().getValues(eventMatrix);
-				System.out.println("AFTER: " + view.getImageMatrix().toString());
-				if (eventMatrix[2] > 0) {
-					eventMatrix[2] = 0;
-					// view.setImageMatrix(resMatrix);
+				// System.out.println("AFTER: " + view.getImageMatrix().toString());
+
+				// System.out.println("AFTER: " + view.getX() + " x " + view.getY());
+
+				if (view.getWidth() < drawable.getIntrinsicWidth()) {
+					if (eventMatrix[Matrix.MTRANS_X] > 0) {
+						eventMatrix[Matrix.MTRANS_X] = 0;
+						// view.setImageMatrix(resMatrix);
+					}
+					else if (eventMatrix[Matrix.MTRANS_X] < view.getWidth()
+							- drawable.getIntrinsicWidth()) {
+						eventMatrix[Matrix.MTRANS_X] = view.getWidth()
+								- drawable.getIntrinsicWidth();
+					}
 				}
-				else if (eventMatrix[2] < view.getWidth()
-						- drawable.getIntrinsicWidth()) {
-					eventMatrix[2] = view.getWidth() - drawable.getIntrinsicWidth();
+				else
+					eventMatrix[Matrix.MTRANS_X] = 0;
+
+				if (view.getHeight() < drawable.getIntrinsicHeight()) {
+					if (eventMatrix[Matrix.MTRANS_Y] > 0) {
+						eventMatrix[Matrix.MTRANS_Y] = 0;
+					}
+					else if (eventMatrix[Matrix.MTRANS_Y] < view.getHeight()
+							- drawable.getIntrinsicHeight()) {
+						eventMatrix[Matrix.MTRANS_Y] = view.getHeight()
+								- drawable.getIntrinsicHeight();
+					}
 				}
-				if (eventMatrix[5] > 0) {
-					eventMatrix[5] = 0;
-				}
-				else if (eventMatrix[5] < view.getHeight()
-						- drawable.getIntrinsicHeight()) {
-					eventMatrix[5] = view.getHeight() - drawable.getIntrinsicHeight();
-				}
+				else
+					eventMatrix[Matrix.MTRANS_Y] = 0;
 
 				resMatrix.setValues(eventMatrix);
 				matrix = resMatrix;
 				break;
 			case ZOOM:
+				// Ensure minimum and maximum scales
+				view.getImageMatrix().getValues(eventMatrix);
+				if (eventMatrix[0] < 1) {
+					eventMatrix[0] = (float) 1.0;
+					eventMatrix[2] = 0;
+				}
+				if (eventMatrix[4] < 1) {
+					eventMatrix[4] = (float) 1.0;
+					eventMatrix[5] = 0;
+				}
+				resMatrix.setValues(eventMatrix);
+				matrix = resMatrix;
+				System.out.println("AFTER: " + view.getImageMatrix().toString());
 				break;
 			}
 
@@ -180,6 +297,10 @@ public class MainActivity extends Activity implements OnTouchListener {
 				matrix.set(savedMatrix);
 				float dx = event.getX() - start.x;
 				float dy = event.getY() - start.y;
+				/*
+				 * if (view.getHeight() >= drawable.getIntrinsicHeight()) { dy = 0; } if
+				 * (view.getWidth() >= drawable.getIntrinsicWidth()) { dx = 0; }
+				 */
 				matrix.getValues(eventMatrix);
 				matrix.postTranslate(dx, dy);
 			}
@@ -197,6 +318,7 @@ public class MainActivity extends Activity implements OnTouchListener {
 					// else if (newScale < 0.1) {
 					// return false;
 					// }
+
 					mCurrentScale = newScale;
 					matrix.postScale(scale, scale, mid.x, mid.y);
 				}
@@ -243,6 +365,40 @@ public class MainActivity extends Activity implements OnTouchListener {
 		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
 		ConfigurationInfo info = am.getDeviceConfigurationInfo();
 		return info.reqGlEsVersion >= 0x20000;
+	}
+}
+
+class MyDrawableView extends View {
+	private ShapeDrawable mDrawable;
+
+	public MyDrawableView(Context context) {
+		super(context);
+
+		int x = 10;
+		int y = 10;
+		int width = 300;
+		int height = 50;
+
+		mDrawable = new ShapeDrawable(new OvalShape());
+		mDrawable.getPaint().setColor(0xff74AC23);
+		mDrawable.setBounds(x, y, x + width, y + height);
+	}
+
+	public MyDrawableView(Context context, AttributeSet attrs) {
+		super(context, attrs);
+
+		int x = 0;
+		int y = 0;
+		int width = 50;
+		int height = 50;
+
+		mDrawable = new ShapeDrawable(new OvalShape());
+		mDrawable.getPaint().setColor(0xff74AC23);
+		mDrawable.setBounds(x, y, x + width, y + height);
+	}
+
+	protected void onDraw(Canvas canvas) {
+		mDrawable.draw(canvas);
 	}
 }
 
