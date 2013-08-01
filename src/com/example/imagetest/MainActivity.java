@@ -51,6 +51,7 @@ public class MainActivity extends Activity implements OnTouchListener {
 	private static final int DRAG = 1;
 	private static final int ZOOM = 2;
 	private int mode = NONE;
+
 	private float[] eventMatrix = new float[9];
 	private float[] lastEvent = null;
 	private float oldDist = 1f;
@@ -80,22 +81,13 @@ public class MainActivity extends Activity implements OnTouchListener {
 		// setContentView(mGLView);
 		setContentView(R.layout.activity_two);
 
-		// float rotation = 60;
-		// float scaleX = 2;
-		// float scaleY = 2;
 		imgView = (ImageView) findViewById(R.id.imageView1);
-		// imgView.setRotationX();
-		// imgView.setRotationY();
-		// imgView.setRotation(rotation);
-		/*
-		 * imgView.setPivotX(0); imgView.setPivotY(0); imgView.setScaleX(scaleX);
-		 * imgView.setScaleY(scaleY);
-		 */
 
 		myDView = (MyDrawableView) findViewById(R.id.circleView1);
 		myDView.setVisibility(View.INVISIBLE);
+
 		imgView.setOnTouchListener(this);
-		
+
 		calcInitScale(imgView);
 		plotPoint(365, 261);
 	}
@@ -180,46 +172,23 @@ public class MainActivity extends Activity implements OnTouchListener {
 				numScansPending = progress;
 			}
 		});
-
-		// builder.create();
-		// builder.show();
 	}
 
 	public boolean onTouch(View v, MotionEvent event) {
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
-		// metrics.heightPixels;
-		// metrics.widthPixels;
 		// handle touch events here
 		ImageView view = (ImageView) v;
-		// MotionEvent.ACTION_MASK
 		Drawable drawable = getResources().getDrawable(R.drawable.cc_1);
 
 		switch (event.getAction() & MotionEvent.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
-//			myDView.setVisibility(View.INVISIBLE);
-			// System.out.println("First press down");
 			savedMatrix.set(matrix);
 			start.set(event.getX(), event.getY());
-			// System.out.println("X is " + event.getX() + " Y is " + event.getY());
 			mode = DRAG;
-			// System.out.println("BEFORE: " + view.getImageMatrix().toString());
 			// lastEvent = null;
-			System.out.println("VIEW DIM: " + view.getHeight() + "x"
-					+ view.getWidth());
 
-			System.out.println("SCREEN DIM: " + metrics.heightPixels + "x"
-					+ metrics.widthPixels);
-
-			System.out.println("IMG DIM: " + drawable.getIntrinsicHeight() + "x"
-					+ drawable.getIntrinsicWidth());
-
-			System.out.println("X Y coord: " + event.getX() + "x" + event.getY());
-			
-//			myDView.setX(event.getX() - 25);
-//			myDView.setY(event.getY() - 25);
-//			myDView.setVisibility(View.VISIBLE);
 			break;
 		case MotionEvent.ACTION_POINTER_DOWN:
 			System.out.println("Subsequent presses");
@@ -229,7 +198,7 @@ public class MainActivity extends Activity implements OnTouchListener {
 				midPoint(mid, event);
 				mode = ZOOM;
 			}
-			// IMAGE is 1293x755 NOTE ALL SHOULD BE THE SAME SIZE
+			
 			lastEvent = new float[4];
 			lastEvent[0] = event.getX(0);
 			lastEvent[1] = event.getX(1);
@@ -239,18 +208,13 @@ public class MainActivity extends Activity implements OnTouchListener {
 			break;
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_POINTER_UP:
-			// System.out.println("PRESSES ENDED");
 			switch (mode) {
 			case DRAG:
 				view.getImageMatrix().getValues(eventMatrix);
-				// System.out.println("AFTER: " + view.getImageMatrix().toString());
-
-				// System.out.println("AFTER: " + view.getX() + " x " + view.getY());
 
 				if (view.getWidth() < drawable.getIntrinsicWidth()) {
 					if (eventMatrix[Matrix.MTRANS_X] > 0) {
 						eventMatrix[Matrix.MTRANS_X] = 0;
-						// view.setImageMatrix(resMatrix);
 					}
 					else if (eventMatrix[Matrix.MTRANS_X] < view.getWidth()
 							- drawable.getIntrinsicWidth()) {
@@ -297,19 +261,17 @@ public class MainActivity extends Activity implements OnTouchListener {
 			mode = NONE;
 			break;
 		case MotionEvent.ACTION_MOVE:
-			// System.out.println("ACTUALLY DOING ACTIONS - scroll, scale");
-
 			if (mode == DRAG) {
 				matrix.set(savedMatrix);
 				float dx = event.getX() - start.x;
 				float dy = event.getY() - start.y;
+
 				/*
-				 * if (view.getHeight() >= drawable.getIntrinsicHeight()) { dy = 0; } if
-				 * (view.getWidth() >= drawable.getIntrinsicWidth()) { dx = 0; }
+				 * WE MIGHT WANT TO RESTRICT MOVEMENT IN CERTAIN DIRECTIONS BASED ON
+				 * SCALE: if (view.getHeight() >= drawable.getIntrinsicHeight()) { dy =
+				 * 0; } if (view.getWidth() >= drawable.getIntrinsicWidth()) { dx = 0; }
 				 */
 				matrix.postTranslate(dx, dy);
-				matrix.getValues(eventMatrix);
-				plotPoint(365, 261);
 			}
 			else if (mode == ZOOM) {
 				float newDist = spacing(event);
@@ -317,16 +279,6 @@ public class MainActivity extends Activity implements OnTouchListener {
 					matrix.set(savedMatrix);
 					float scale = (newDist / oldDist);
 
-					// check scale is not too big or two small
-					float newScale = scale * mCurrentScale;
-					// if (newScale > 10) {
-					// return false;
-					// }
-					// else if (newScale < 0.1) {
-					// return false;
-					// }
-
-					mCurrentScale = newScale;
 					matrix.postScale(scale, scale, mid.x, mid.y);
 				}
 				if (lastEvent != null && event.getPointerCount() == 3) {
@@ -344,6 +296,10 @@ public class MainActivity extends Activity implements OnTouchListener {
 			}
 			break;
 		}
+
+		matrix.getValues(eventMatrix);
+
+		/* The point specified will be given by the localization function */
 		plotPoint(365, 261);
 		view.setImageMatrix(matrix);
 		return true;
@@ -369,28 +325,33 @@ public class MainActivity extends Activity implements OnTouchListener {
 	}
 
 	private void calcInitScale(View v) {
-//		ImageView view = (ImageView) v;
 		Drawable drawable = getResources().getDrawable(R.drawable.cc_1);
 
-		// The initial size of the image will have to predefined somewhere
+		/* The initial size of the image will have to predefined somewhere */
 		initScaleX = (float) drawable.getIntrinsicWidth() / 1293;
 		initScaleY = (float) drawable.getIntrinsicHeight() / 755;
-		// The xy spreadsheet is 1291 by 754 for some reason
 		
-		System.out.println("X scale is " + initScaleX);
-		System.out.println("Y scale is " + initScaleY);
+	  // IMAGE is 1293x755 NOTE ALL SHOULD BE THE SAME SIZE
+		// NOTE: The xy spreadsheet is 1291 by 754 for some reason
 		return;
 	}
-	
+
+	/*
+	 * Function that will plot the point correctly regardless of scale or position
+	 */
 	private void plotPoint(float x, float y) {
-//		System.out.println("moving point: " + eventMatrix[Matrix.MTRANS_X]);
+		// TODO adjust for rotation
+
 		myDView.setVisibility(View.INVISIBLE);
-		myDView.setX((x * initScaleX) - 25 + eventMatrix[Matrix.MTRANS_X]);
-		myDView.setY((y * initScaleY) - 25 + eventMatrix[Matrix.MTRANS_Y]);
+		myDView.setX((x * initScaleX * eventMatrix[Matrix.MSCALE_X]) - 25
+				+ eventMatrix[Matrix.MTRANS_X]);
+		myDView.setY((y * initScaleY * eventMatrix[Matrix.MSCALE_Y]) - 25
+				+ eventMatrix[Matrix.MTRANS_Y]);
 		myDView.setVisibility(View.VISIBLE);
 		return;
 	}
-	
+
+	// FUNCTION NOT USED
 	private boolean hasGLES20() {
 		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
 		ConfigurationInfo info = am.getDeviceConfigurationInfo();
@@ -398,6 +359,9 @@ public class MainActivity extends Activity implements OnTouchListener {
 	}
 }
 
+/*
+ * Tracking circle
+ */
 class MyDrawableView extends View {
 	private ShapeDrawable mDrawable;
 
@@ -432,6 +396,11 @@ class MyDrawableView extends View {
 	}
 }
 
+/**********************************************************
+ * EVERYTHING BELOW THIS COMMENT IS NO LONGER BEING USED *
+ * 
+ * @author Ken * *
+ **********************************************************/
 class MyGLSurfaceView extends GLSurfaceView {
 
 	private MyGLRenderer mRenderer;
